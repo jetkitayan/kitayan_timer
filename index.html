@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tabata Duo Timer — Vertical Indicator</title>
+  <style>
+    :root{
+      --bg:#0b0c0f;          /* page background */
+      --panel:#14161c;       /* cards */
+      --muted:#8a93a5;       /* secondary text */
+      --work:#1abc9c;        /* work color */
+      --rest:#e67e22;        /* rest color */
+      --danger:#ff4d4f;
+      --ok:#2ecc71;
+      --focus:#4da3ff;
+      --border: #232735;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      background: radial-gradient(1200px 800px at 75% -10%, #1e2230 0%, var(--bg) 60%);
+      color:#e8ecf1;
+    }
+
+    .wrap{max-width:1100px; margin: 20px auto; padding: 20px;}
+    header{display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
+    header h1{font-size: clamp(18px, 3vw, 24px); margin:0; letter-spacing:.4px; font-weight:700}
+
+    .grid{display:grid; grid-template-columns: 1.2fr 1fr; gap:20px}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+
+    .card{background:linear-gradient(180deg, #171a22 0%, #111319 100%); border:1px solid var(--border); border-radius:18px; padding:16px 16px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.25)}
+
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .row + .row{margin-top:10px}
+
+    label{font-size:13px; color:var(--muted)}
+    .field{display:flex; flex-direction:column; gap:8px; flex:1}
+    input[type="text"], input[type="number"]{
+      background:#0e1016; border:1px solid var(--border); border-radius:12px; color:#e8ecf1; padding:12px 14px; font-size:16px; width:100%;
+      outline:none; transition:border-color .15s, box-shadow .15s;
+    }
+    input:focus{border-color:var(--focus); box-shadow:0 0 0 3px rgba(77,163,255,.15)}
+
+    .hint{font-size:12px; color:var(--muted)}
+
+    .btns{display:flex; gap:10px; flex-wrap:wrap}
+    button{appearance:none; border:none; border-radius:12px; padding:12px 16px; font-weight:700; letter-spacing:.4px; cursor:pointer; transition:.15s transform ease, .2s background;
+      color:#0b0c0f;}
+    .b-primary{background:#4da3ff;}
+    .b-secondary{background:#374155; color:#e8ecf1}
+    .b-danger{background:var(--danger);}
+    .b-ghost{background:transparent; border:1px solid var(--border); color:#e8ecf1}
+    button:active{transform:translateY(1px)}
+
+    /* Timer panel */
+    .timer{display:grid; grid-template-columns: 90px 1fr; gap:16px}
+    @media (max-width:700px){ .timer{grid-template-columns: 1fr} }
+
+    .pillar-wrap{height: 64vh; min-height: 380px; max-height: 78vh; display:flex; gap:10px}
+    .pillar{flex:1; background:#0e1118; border:1px solid var(--border); border-radius:16px; overflow:hidden; position:relative}
+    .fill{position:absolute; left:0; right:0; bottom:0; height:0%; background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.05)); mix-blend-mode:screen}
+    .mask{position:absolute; inset:0;}
+    .mask.work{background:linear-gradient(180deg, rgba(26,188,156,.85), rgba(26,188,156,.35)); box-shadow: inset 0 0 20px rgba(26,188,156,.35)}
+    .mask.rest{background:linear-gradient(180deg, rgba(230,126,34,.85), rgba(230,126,34,.35)); box-shadow: inset 0 0 20px rgba(230,126,34,.35)}
+    .ticks{position:absolute; inset:0; background-image: repeating-linear-gradient(to top, rgba(255,255,255,.08) 0 1px, transparent 1px 28px)}
+
+    .timer-info{display:flex; flex-direction:column; justify-content:space-between}
+
+    .phase{font-size:14px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted)}
+    .phase .chip{display:inline-block; padding:4px 10px; border-radius:999px; margin-left:8px; font-weight:800; color:#0b0c0f}
+    .chip.work{background:var(--work)}
+    .chip.rest{background:var(--rest)}
+
+    .big{font-size: clamp(58px, 11vw, 96px); font-weight:900; line-height:1; letter-spacing:1px;}
+
+    .stack{display:grid; grid-template-columns: repeat(var(--cols,4), 1fr); gap:8px}
+    .dot{height:10px; background:#222635; border:1px solid var(--border); border-radius:999px; overflow:hidden}
+    .dot > i{display:block; height:100%; width:0%;}
+
+    .muted{color:var(--muted)}
+    .kbd{background:#0f121a; border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:12px; color:#cad2e2}
+
+    footer{margin-top:18px; color:var(--muted); font-size:12px}
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Tabata Duo Timer <span class="muted">— 2種インターバルを交互にカウントダウン</span></h1>
+      <div class="btns">
+        <button id="startBtn" class="b-primary">▶ Start</button>
+        <button id="pauseBtn" class="b-secondary">⏸ Pause</button>
+        <button id="resetBtn" class="b-danger">⟲ Reset</button>
+        <button id="toggleSound" class="b-ghost">🔔 Beep: <span id="soundState">On</span></button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div class="row">
+          <div class="field">
+            <label>Work（運動） <span class="hint">mm:ss または 秒（例 20 or 0:20）</span></label>
+            <input id="workInput" type="text" inputmode="numeric" placeholder="0:20" />
+          </div>
+          <div class="field">
+            <label>Rest（休憩） <span class="hint">mm:ss または 秒（例 10 or 0:10）</span></label>
+            <input id="restInput" type="text" inputmode="numeric" placeholder="0:10" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>セット数（Work→Rest を1セット）</label>
+            <input id="setsInput" type="number" min="1" step="1" value="8" />
+          </div>
+          <div class="field">
+            <label>ウォームアップ（任意・先頭に一度だけ）</label>
+            <input id="warmupInput" type="text" inputmode="numeric" placeholder="0:10" />
+            <span class="hint">空欄なら無し。時間形式は上と同じ。</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>画面スリープ防止（Wake Lock）</label>
+            <div class="btns">
+              <button id="wakeBtn" class="b-ghost">💡 Enable</button>
+              <span id="wakeHint" class="hint">対応ブラウザで有効。音声再生中は解除される場合あり。</span>
+            </div>
+          </div>
+        </div>
+        <div class="row muted">
+          <div>ショートカット: <span class="kbd">Space</span> Start/Pause, <span class="kbd">R</span> Reset, <span class="kbd">S</span> Sound On/Off</div>
+        </div>
+      </section>
+
+      <section class="card timer">
+        <div class="pillar-wrap">
+          <!-- Single tall pillar visualising progress of current phase -->
+          <div class="pillar" aria-hidden="true">
+            <div class="ticks"></div>
+            <div id="mask" class="mask work"></div>
+            <div id="fill" class="fill"></div>
+          </div>
+        </div>
+
+        <div class="timer-info">
+          <div>
+            <div class="phase">現在のフェーズ <span id="phaseChip" class="chip work">WORK</span></div>
+            <div id="clock" class="big">00:20</div>
+            <div id="subText" class="muted">セット 1 / 8</div>
+          </div>
+
+          <div>
+            <label>進捗（セットごと）</label>
+            <div id="stack" class="stack" style="--cols:8"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      © Tabata Duo Timer — 保存はローカルのみ。ページを閉じても前回の設定を記憶します。
+    </footer>
+  </div>
+
+  <script>
+    // ===== Helpers =====
+    const $ = (sel)=>document.querySelector(sel);
+    const workInput = $('#workInput');
+    const restInput = $('#restInput');
+    const warmupInput = $('#warmupInput');
+    const setsInput = $('#setsInput');
+
+    const startBtn = $('#startBtn');
+    const pauseBtn = $('#pauseBtn');
+    const resetBtn = $('#resetBtn');
+    const soundBtn = $('#toggleSound');
+    const soundState = $('#soundState');
+
+    const mask = $('#mask');
+    const fill = $('#fill');
+    const phaseChip = $('#phaseChip');
+    const clock = $('#clock');
+    const subText = $('#subText');
+    const stack = $('#stack');
+
+    const wakeBtn = $('#wakeBtn');
+    const wakeHint = $('#wakeHint');
+
+    const LS_KEY = 'tabata-duo-settings-v1';
+
+    function parseTime(v){
+      if(!v) return 0;
+      v = (''+v).trim();
+      if(v.includes(':')){
+        const [m,s] = v.split(':').map(Number);
+        if(Number.isFinite(m) && Number.isFinite(s)) return Math.max(0, m*60+s);
+        return 0;
+      }
+      const sec = Number(v);
+      return Number.isFinite(sec) ? Math.max(0, Math.round(sec)) : 0;
+    }
+    function fmt(sec){
+      sec = Math.max(0, Math.round(sec));
+      const m = Math.floor(sec/60), s = sec%60;
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    function saveSettings(){
+      const data = {
+        work: workInput.value || '0:20',
+        rest: restInput.value || '0:10',
+        warmup: warmupInput.value || '',
+        sets: Math.max(1, Number(setsInput.value)||8),
+        sound: soundOn
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    }
+    function loadSettings(){
+      const raw = localStorage.getItem(LS_KEY);
+      const d = raw ? JSON.parse(raw) : null;
+      if(d){
+        workInput.value = d.work;
+        restInput.value = d.rest;
+        warmupInput.value = d.warmup || '';
+        setsInput.value = d.sets || 8;
+        soundOn = d.sound ?? true;
+      } else {
+        workInput.value = '0:20';
+        restInput.value = '0:10';
+        setsInput.value = 8;
+        soundOn = true;
+      }
+      soundState.textContent = soundOn ? 'On' : 'Off';
+    }
+
+    // ===== Audio (WebAudio beep) =====
+    let audioCtx = null; let soundOn = true;
+    function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    function beep(type='phase'){
+      if(!soundOn) return;
+      try{
+        ensureAudio();
+        const ctx = audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        const now = ctx.currentTime;
+        let freq = 880, dur = 0.14;
+        if(type==='finish'){ freq=523.25; dur=0.5; }
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.001, now);
+        g.gain.exponentialRampToValueAtTime(0.6, now+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+        o.connect(g).connect(ctx.destination);
+        o.start(); o.stop(now+dur+0.02);
+      }catch(e){/* ignore */}
+    }
+
+    // ===== Wake Lock =====
+    let wakeLock = null;
+    async function enableWake(){
+      try{
+        if('wakeLock' in navigator){
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeBtn.textContent = '💡 Enabled';
+          wakeBtn.classList.remove('b-ghost');
+          wakeBtn.classList.add('b-secondary');
+          wakeLock.addEventListener('release', ()=>{
+            wakeBtn.textContent = '💡 Enable';
+            wakeBtn.classList.remove('b-secondary');
+            wakeBtn.classList.add('b-ghost');
+          });
+        } else {
+          wakeHint.textContent = 'お使いの環境では Wake Lock は未対応です。';
+        }
+      }catch(e){ wakeHint.textContent = 'Wake Lock の取得に失敗しました。タップで再試行してください。'; }
+    }
+
+    // ===== Core timer state =====
+    const PHASE = { WARMUP:'WARMUP', WORK:'WORK', REST:'REST', DONE:'DONE' };
+
+    let cfg = { workSec:20, restSec:10, warmupSec:0, sets:8 };
+    let state = { phase:PHASE.WORK, setIdx:1, remaining:20, running:false };
+
+    let rafId = null; let lastTs = 0; // for smooth countdown
+
+    function buildStack(){
+      stack.innerHTML = '';
+      stack.style.setProperty('--cols', Math.min(12, cfg.sets));
+      for(let i=0;i<cfg.sets;i++){
+        const d = document.createElement('div'); d.className='dot';
+        const iEl = document.createElement('i'); iEl.style.width = (i<state.setIdx-1? '100%':'0%');
+        iEl.style.background = i<state.setIdx-1 ? 'linear-gradient(90deg, #6be7c7, #1abc9c)' : 'linear-gradient(90deg, #3a4154, #2a3142)';
+        d.appendChild(iEl); stack.appendChild(d);
+      }
+    }
+
+    function applyPhaseUI(){
+      phaseChip.textContent = state.phase === PHASE.WORK ? 'WORK' : (state.phase===PHASE.REST? 'REST' : (state.phase===PHASE.WARMUP? 'WARMUP':'DONE'));
+      phaseChip.className = 'chip ' + (state.phase===PHASE.WORK? 'work' : (state.phase===PHASE.REST? 'rest' : ''));
+      mask.className = 'mask ' + (state.phase===PHASE.WORK? 'work' : (state.phase===PHASE.REST? 'rest' : 'work'));
+      clock.textContent = fmt(state.remaining);
+      subText.textContent = state.phase===PHASE.DONE ? `完了！ 合計 ${cfg.sets} セット` : `セット ${Math.min(state.setIdx, cfg.sets)} / ${cfg.sets}`;
+    }
+
+    function setFill(){
+      const total = (state.phase===PHASE.WORK? cfg.workSec : state.phase===PHASE.REST? cfg.restSec : state.phase===PHASE.WARMUP? cfg.warmupSec : 1);
+      const progress = total>0 ? 1 - (state.remaining/total) : 1;
+      fill.style.height = `${Math.min(100, Math.max(0, progress*100))}%`;
+    }
+
+    function nextPhase(){
+      if(state.phase===PHASE.WARMUP){
+        state.phase = PHASE.WORK; state.remaining = cfg.workSec; beep('phase');
+        return;
+      }
+      if(state.phase===PHASE.WORK){
+        state.phase = PHASE.REST; state.remaining = cfg.restSec; beep('phase');
+        return;
+      }
+      if(state.phase===PHASE.REST){
+        // end of one set
+        if(state.setIdx >= cfg.sets){
+          state.phase = PHASE.DONE; state.remaining = 0; beep('finish'); stop(); buildStack(); applyPhaseUI(); setFill();
+        } else {
+          state.setIdx++; buildStack();
+          state.phase = PHASE.WORK; state.remaining = cfg.workSec; beep('phase');
+        }
+        return;
+      }
+    }
+
+    function tick(ts){
+      if(!state.running){ return; }
+      if(!lastTs) lastTs = ts;
+      const dt = Math.min(1, (ts - lastTs)/1000); // cap to 1s to avoid huge jumps
+      lastTs = ts;
+
+      state.remaining -= dt;
+      if(state.remaining <= 0){
+        nextPhase();
+      }
+      applyPhaseUI();
+      setFill();
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function start(){
+      if(state.phase===PHASE.DONE){ reset(); }
+      if(cfg.workSec<=0 || cfg.restSec<=0){ alert('Work と Rest の時間を1秒以上で設定してください。'); return; }
+      state.running = true; lastTs = 0; cancelAnimationFrame(rafId); rafId = requestAnimationFrame(tick);
+    }
+    function pause(){ state.running = false; cancelAnimationFrame(rafId); }
+    function stop(){ state.running = false; cancelAnimationFrame(rafId); }
+
+    function reset(){
+      stop();
+      cfg.workSec = parseTime(workInput.value || '0:20');
+      cfg.restSec = parseTime(restInput.value || '0:10');
+      cfg.warmupSec = parseTime(warmupInput.value || '');
+      cfg.sets = Math.max(1, Number(setsInput.value)||8);
+
+      state.setIdx = 1;
+      state.phase = cfg.warmupSec>0 ? PHASE.WARMUP : PHASE.WORK;
+      state.remaining = state.phase===PHASE.WARMUP ? cfg.warmupSec : cfg.workSec;
+      buildStack(); applyPhaseUI(); setFill(); saveSettings();
+    }
+
+    // ===== Events =====
+    startBtn.addEventListener('click', start);
+    pauseBtn.addEventListener('click', pause);
+    resetBtn.addEventListener('click', reset);
+
+    soundBtn.addEventListener('click', ()=>{ soundOn = !soundOn; soundState.textContent = soundOn? 'On':'Off'; saveSettings(); });
+    wakeBtn.addEventListener('click', enableWake);
+
+    // commit on input change
+    [workInput, restInput, warmupInput, setsInput].forEach(el=>{
+      el.addEventListener('change', ()=>{ reset(); });
+    });
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e)=>{
+      if(e.code==='Space'){ e.preventDefault(); state.running? pause(): start(); }
+      if(e.key==='r' || e.key==='R'){ reset(); }
+      if(e.key==='s' || e.key==='S'){ soundOn = !soundOn; soundState.textContent = soundOn? 'On':'Off'; saveSettings();}
+    });
+
+    // Page visibility: pause to avoid drift when hidden
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden) pause(); });
+
+    // Init
+    loadSettings();
+    reset();
+  </script>
+</body>
+</html>
