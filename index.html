@@ -1,115 +1,216 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tabata Duo Timer — Dual Panels (Always Side-by-Side)</title>
-<style>
-  :root {
-    --bg: #0b0c0f; --border: #232735; --panel: #14161c;
-    --work: #1abc9c; --rest: #e67e22; --muted: #8a93a5;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0; height: 100vh;
-    font-family: system-ui, sans-serif;
-    background: #0b0c0f; color: #e8ecf1;
-    display: flex; flex-direction: row;
-  }
-  .half {
-    flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: space-between; border-left: 1px solid var(--border);
-    padding: 20px; overflow: hidden;
-  }
-  .half:first-child { border-left: none; }
-  h2 { margin: 0 0 10px; font-size: 1.4rem; }
-  .timer-box {
-    width: 100%; flex: 1; display: flex; flex-direction: row;
-    justify-content: center; align-items: center; gap: 20px;
-  }
-  .pillar {
-    flex: 0 0 60px; height: 70vh; background: #0e1118;
-    border-radius: 20px; position: relative; overflow: hidden;
-  }
-  .mask.work { background: linear-gradient(180deg, var(--work) 0%, rgba(26,188,156,.3) 100%); }
-  .mask.rest { background: linear-gradient(180deg, var(--rest) 0%, rgba(230,126,34,.3) 100%); }
-  .mask { position: absolute; inset: 0; opacity: 0.6; }
-  .fill { position: absolute; bottom: 0; left: 0; right: 0; height: 0%; background: rgba(255,255,255,.2); }
-  .display { text-align: center; }
-  .time { font-size: 3rem; font-weight: 700; }
-  .phase { font-size: 1rem; color: var(--muted); margin-top: .4rem; }
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  button { border: none; border-radius: 8px; padding: 10px 16px; font-weight: bold; cursor: pointer; }
-  .start { background: var(--work); color: #000; }
-  .pause { background: var(--rest); color: #000; }
-  .reset { background: #ff4d4f; color: #000; }
-  /* Force two columns at all widths */
-  .grid-2{grid-template-columns:1fr 1fr !important}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tabata Duo Timer — Dual Panels (Left & Right)</title>
+  <style>
+    :root{
+      --bg:#0b0c0f; --panel:#14161c; --muted:#8a93a5; --work:#1abc9c; --rest:#e67e22; --danger:#ff4d4f; --ok:#2ecc71; --focus:#4da3ff; --border:#232735;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:radial-gradient(1200px 800px at 75% -10%,#1e2230 0%,var(--bg) 60%);color:#e8ecf1}
+    .wrap{max-width:1300px;margin:10px auto;padding:10px}
+    header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    header h1{font-size:clamp(16px,2.6vw,22px);margin:0;letter-spacing:.4px;font-weight:700}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    button{appearance:none;border:none;border-radius:12px;padding:10px 14px;font-weight:700;letter-spacing:.4px;cursor:pointer;transition:.15s transform ease,.2s background;color:#0b0c0f}
+    .b-primary{background:#4da3ff}.b-secondary{background:#374155;color:#e8ecf1}.b-danger{background:var(--danger)}.b-ghost{background:transparent;border:1px solid var(--border);color:#e8ecf1}
+    button:active{transform:translateY(1px)}
+
+    /* ALWAYS two columns (even on mobile) */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr !important;gap:12px}
+
+    .card{background:linear-gradient(180deg,#171a22 0%,#111319 100%);border:1px solid var(--border);border-radius:16px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .row + .row{margin-top:8px}
+    label{font-size:12px;color:var(--muted)}
+    .field{display:flex;flex-direction:column;gap:6px;flex:1}
+    input[type="text"],input[type="number"]{background:#0e1016;border:1px solid var(--border);border-radius:10px;color:#e8ecf1;padding:10px 12px;font-size:15px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s}
+    input:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(77,163,255,.15)}
+    .hint{font-size:11px;color:var(--muted)}
+    .muted{color:var(--muted)}
+    .kbd{background:#0f121a;border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#cad2e2}
+
+    /* timer layout inside panel */
+    .timer{display:grid;grid-template-columns:72px 1fr;gap:12px}
+    .pillar-wrap{height:58vh;min-height:300px;max-height:74vh;display:flex;gap:8px}
+    .pillar{flex:1;background:#0e1118;border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative}
+    .fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.05));mix-blend-mode:screen}
+    .mask{position:absolute;inset:0}
+    .mask.work{background:linear-gradient(180deg,rgba(26,188,156,.85),rgba(26,188,156,.35));box-shadow:inset 0 0 20px rgba(26,188,156,.35)}
+    .mask.rest{background:linear-gradient(180deg,rgba(230,126,34,.85),rgba(230,126,34,.35));box-shadow:inset 0 0 20px rgba(230,126,34,.35)}
+    .ticks{position:absolute;inset:0;background-image:repeating-linear-gradient(to top,rgba(255,255,255,.08) 0 1px,transparent 1px 24px)}
+
+    .timer-info{display:flex;flex-direction:column;justify-content:space-between}
+    .phase{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+    .phase .chip{display:inline-block;padding:4px 10px;border-radius:999px;margin-left:8px;font-weight:800;color:#0b0c0f}
+    .chip.work{background:var(--work)}.chip.rest{background:var(--rest)}
+    .big{font-size:clamp(40px,8.2vw,72px);font-weight:900;line-height:1;letter-spacing:1px}
+
+    .stack{display:grid;grid-template-columns:repeat(var(--cols,4),1fr);gap:6px}
+    .dot{height:8px;background:#222635;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+    .dot>i{display:block;height:100%;width:0%}
+
+    footer{margin-top:10px;color:var(--muted);font-size:11px}
+
+    .panel-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .panel-title h2{margin:0;font-size:14px;letter-spacing:.3px}
+  </style>
 </head>
 <body>
-  <div class="half" id="left">
-    <h2>Left Timer</h2>
-    <div class="timer-box">
-      <div class="pillar">
-        <div class="mask work"></div>
-        <div class="fill" id="fillL"></div>
+  <div class="wrap">
+    <header>
+      <h1>Tabata Duo Timer <span class="muted">— 左右に独立した2つのタイマー</span></h1>
+      <div class="btns">
+        <button id="startBoth" class="b-primary">▶ Start Both</button>
+        <button id="pauseBoth" class="b-secondary">⏸ Pause Both</button>
+        <button id="resetBoth" class="b-danger">⟲ Reset Both</button>
       </div>
-      <div class="display">
-        <div class="time" id="timeL">00:20</div>
-        <div class="phase" id="phaseL">WORK</div>
-      </div>
-    </div>
-    <div class="controls">
-      <button class="start" onclick="startTimer('L')">Start</button>
-      <button class="pause" onclick="pauseTimer('L')">Pause</button>
-      <button class="reset" onclick="resetTimer('L')">Reset</button>
-    </div>
+    </header>
+
+    <section class="grid-2">
+      <!-- LEFT PANEL -->
+      <section id="panel-left" class="card">
+        <div class="panel-title"><h2>Left Timer</h2><span class="muted">ショートカット: <span class="kbd">L</span>系</span></div>
+        <div class="row">
+          <div class="field"><label>Work（運動） <span class="hint">mm:ss or 秒</span></label><input data-role="work" type="text" inputmode="numeric" placeholder="0:20"></div>
+          <div class="field"><label>Rest（休憩） <span class="hint">mm:ss or 秒</span></label><input data-role="rest" type="text" inputmode="numeric" placeholder="0:10"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>セット数</label><input data-role="sets" type="number" min="1" step="1" value="8"></div>
+          <div class="field"><label>ウォームアップ（任意）</label><input data-role="warmup" type="text" inputmode="numeric" placeholder="0:10"><span class="hint">空欄なら無し</span></div>
+        </div>
+        <div class="row">
+          <div class="btns">
+            <button data-role="start" class="b-primary">▶ Start</button>
+            <button data-role="pause" class="b-secondary">⏸ Pause</button>
+            <button data-role="reset" class="b-danger">⟲ Reset</button>
+            <button data-role="sound" class="b-ghost">🔔 Beep: <span data-role="soundState">On</span></button>
+            <button data-role="wake" class="b-ghost">💡 Enable</button>
+          </div>
+        </div>
+        <div class="timer" data-role="timer">
+          <div class="pillar-wrap"><div class="pillar"><div class="ticks"></div><div class="mask work" data-role="mask"></div><div class="fill" data-role="fill"></div></div></div>
+          <div class="timer-info">
+            <div>
+              <div class="phase">現在のフェーズ <span class="chip work" data-role="chip">WORK</span></div>
+              <div class="big" data-role="clock">00:20</div>
+              <div class="muted" data-role="sub">セット 1 / 8</div>
+            </div>
+            <div>
+              <label>進捗（セットごと）</label>
+              <div class="stack" style="--cols:8" data-role="stack"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL -->
+      <section id="panel-right" class="card">
+        <div class="panel-title"><h2>Right Timer</h2><span class="muted">ショートカット: <span class="kbd">R</span>系</span></div>
+        <div class="row">
+          <div class="field"><label>Work（運動） <span class="hint">mm:ss or 秒</span></label><input data-role="work" type="text" inputmode="numeric" placeholder="0:20"></div>
+          <div class="field"><label>Rest（休憩） <span class="hint">mm:ss or 秒</span></label><input data-role="rest" type="text" inputmode="numeric" placeholder="0:10"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>セット数</label><input data-role="sets" type="number" min="1" step="1" value="8"></div>
+          <div class="field"><label>ウォームアップ（任意）</label><input data-role="warmup" type="text" inputmode="numeric" placeholder="0:10"><span class="hint">空欄なら無し</span></div>
+        </div>
+        <div class="row">
+          <div class="btns">
+            <button data-role="start" class="b-primary">▶ Start</button>
+            <button data-role="pause" class="b-secondary">⏸ Pause</button>
+            <button data-role="reset" class="b-danger">⟲ Reset</button>
+            <button data-role="sound" class="b-ghost">🔔 Beep: <span data-role="soundState">On</span></button>
+            <button data-role="wake" class="b-ghost">💡 Enable</button>
+          </div>
+        </div>
+        <div class="timer" data-role="timer">
+          <div class="pillar-wrap"><div class="pillar"><div class="ticks"></div><div class="mask work" data-role="mask"></div><div class="fill" data-role="fill"></div></div></div>
+          <div class="timer-info">
+            <div>
+              <div class="phase">現在のフェーズ <span class="chip work" data-role="chip">WORK</span></div>
+              <div class="big" data-role="clock">00:20</div>
+              <div class="muted" data-role="sub">セット 1 / 8</div>
+            </div>
+            <div>
+              <label>進捗（セットごと）</label>
+              <div class="stack" style="--cols:8" data-role="stack"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <footer>© Tabata Duo Timer — 左右タイマーは独立動作。設定はそれぞれローカル保存。</footer>
   </div>
-  <div class="half" id="right">
-    <h2>Right Timer</h2>
-    <div class="timer-box">
-      <div class="pillar">
-        <div class="mask rest"></div>
-        <div class="fill" id="fillR"></div>
-      </div>
-      <div class="display">
-        <div class="time" id="timeR">00:10</div>
-        <div class="phase" id="phaseR">REST</div>
-      </div>
-    </div>
-    <div class="controls">
-      <button class="start" onclick="startTimer('R')">Start</button>
-      <button class="pause" onclick="pauseTimer('R')">Pause</button>
-      <button class="reset" onclick="resetTimer('R')">Reset</button>
-    </div>
-  </div>
-<script>
-let timers = {
-  L: {duration: 20, remaining: 20, running: false, id: null},
-  R: {duration: 10, remaining: 10, running: false, id: null}
-};
-function updateDisplay(id) {
-  const t = timers[id];
-  const min = String(Math.floor(t.remaining/60)).padStart(2,'0');
-  const sec = String(Math.floor(t.remaining%60)).padStart(2,'0');
-  document.getElementById('time'+id).textContent = `${min}:${sec}`;
-  document.getElementById('fill'+id).style.height = `${(1 - t.remaining / t.duration)*100}%`;
-}
-function tick(id){
-  const t=timers[id];
-  if(!t.running)return;
-  t.remaining -= 0.1;
-  if(t.remaining<=0){t.remaining=0;t.running=false;clearInterval(t.id);}
-  updateDisplay(id);
-}
-function startTimer(id){
-  const t=timers[id]; if(t.running) return;
-  t.running=true; t.id=setInterval(()=>tick(id),100);
-}
-function pauseTimer(id){const t=timers[id];t.running=false;clearInterval(t.id);}
-function resetTimer(id){const t=timers[id];t.remaining=t.duration;updateDisplay(id);pauseTimer(id);}
-updateDisplay('L');updateDisplay('R');
-</script>
+
+  <script>
+    // ===== Utilities =====
+    const fmt = (sec)=>{sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+    const parseTime = (v)=>{if(!v) return 0; v=(''+v).trim(); if(v.includes(':')){const [m,s]=v.split(':').map(Number);return (Number.isFinite(m)&&Number.isFinite(s))?Math.max(0,m*60+s):0} const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.round(n)):0}
+
+    // ===== Timer Class =====
+    class DuoTimer{
+      constructor(root, key){
+        this.root = root; this.key = key; this.soundOn = true; this.audioCtx=null; this.wakeLock=null; this.raf=0; this.lastTs=0;
+        this.PHASE = {WARMUP:'WARMUP', WORK:'WORK', REST:'REST', DONE:'DONE'};
+        this.q = (sel)=>this.root.querySelector(`[data-role="${sel}"]`);
+        this.el = {
+          work:this.q('work'), rest:this.q('rest'), warmup:this.q('warmup'), sets:this.q('sets'),
+          start:this.q('start'), pause:this.q('pause'), reset:this.q('reset'),
+          sound:this.q('sound'), soundState:this.q('soundState'), wake:this.q('wake'),
+          mask:this.q('mask'), fill:this.q('fill'), chip:this.q('chip'), clock:this.q('clock'), sub:this.q('sub'), stack:this.q('stack')
+        };
+        this.cfg = {workSec:20, restSec:10, warmupSec:0, sets:8};
+        this.state = {phase:this.PHASE.WORK, setIdx:1, remaining:20, running:false};
+        this.load(); this.reset(); this.bind();
+      }
+      ensureAudio(){ if(!this.audioCtx) this.audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+      beep(type='phase'){
+        if(!this.soundOn) return; try{ this.ensureAudio(); const ctx=this.audioCtx; const o=ctx.createOscillator(); const g=ctx.createGain();
+          o.type='sine'; const now=ctx.currentTime; let freq=880, dur=.14; if(type==='finish'){freq=523.25;dur=.5}
+          o.frequency.value=freq; g.gain.setValueAtTime(.001,now); g.gain.exponentialRampToValueAtTime(.6,now+.02); g.gain.exponentialRampToValueAtTime(.001,now+dur);
+          o.connect(g).connect(ctx.destination); o.start(); o.stop(now+dur+.02);
+        }catch(e){}
+      }
+      async enableWake(){
+        try{ if('wakeLock' in navigator){ this.wakeLock = await navigator.wakeLock.request('screen'); this.el.wake.textContent='💡 Enabled'; this.el.wake.classList.remove('b-ghost'); this.el.wake.classList.add('b-secondary'); this.wakeLock.addEventListener('release',()=>{ this.el.wake.textContent='💡 Enable'; this.el.wake.classList.add('b-ghost'); this.el.wake.classList.remove('b-secondary'); }); }
+          else { this.el.wake.insertAdjacentHTML('afterend', '<span class="hint">Wake Lock未対応</span>'); }
+        }catch(e){ this.el.wake.insertAdjacentHTML('afterend','<span class="hint">取得失敗。再試行してください。</span>'); }
+      }
+      save(){ localStorage.setItem(this.key, JSON.stringify({work:this.el.work.value||'0:20', rest:this.el.rest.value||'0:10', warmup:this.el.warmup.value||'', sets:Math.max(1,Number(this.el.sets.value)||8), sound:this.soundOn})) }
+      load(){ const raw = localStorage.getItem(this.key); if(raw){ const d=JSON.parse(raw); this.el.work.value=d.work; this.el.rest.value=d.rest; this.el.warmup.value=d.warmup||''; this.el.sets.value=d.sets||8; this.soundOn=d.sound??true; } else { this.el.work.value='0:20'; this.el.rest.value='0:10'; this.el.sets.value=8; this.soundOn=true; } if(this.el.soundState) this.el.soundState.textContent=this.soundOn?'On':'Off' }
+      buildStack(){ this.el.stack.innerHTML=''; this.el.stack.style.setProperty('--cols', Math.min(12, this.cfg.sets)); for(let i=0;i<this.cfg.sets;i++){ const d=document.createElement('div'); d.className='dot'; const iEl=document.createElement('i'); iEl.style.width = (i<this.state.setIdx-1?'100%':'0%'); iEl.style.background = i<this.state.setIdx-1? 'linear-gradient(90deg, #6be7c7, #1abc9c)' : 'linear-gradient(90deg, #3a4154, #2a3142)'; d.appendChild(iEl); this.el.stack.appendChild(d) } }
+      applyUI(){ const ph=this.state.phase; this.el.chip.textContent = ph===this.PHASE.WORK?'WORK':(ph===this.PHASE.REST?'REST':(ph===this.PHASE.WARMUP?'WARMUP':'DONE')); this.el.chip.className='chip '+(ph===this.PHASE.WORK?'work':(ph===this.PHASE.REST?'rest':'')); this.el.mask.className='mask '+(ph===this.PHASE.WORK?'work':(ph===this.PHASE.REST?'rest':'work')); this.el.clock.textContent=fmt(this.state.remaining); this.el.sub.textContent = ph===this.PHASE.DONE?`完了！ 合計 ${this.cfg.sets} セット`:`セット ${Math.min(this.state.setIdx,this.cfg.sets)} / ${this.cfg.sets}` }
+      setFill(){ const total = this.state.phase===this.PHASE.WORK?this.cfg.workSec: this.state.phase===this.PHASE.REST?this.cfg.restSec: this.state.phase===this.PHASE.WARMUP?this.cfg.warmupSec:1; const prog = total>0? 1-(this.state.remaining/total):1; this.el.fill.style.height = `${Math.min(100,Math.max(0,prog*100))}%` }
+      nextPhase(){ if(this.state.phase===this.PHASE.WARMUP){ this.state.phase=this.PHASE.WORK; this.state.remaining=this.cfg.workSec; this.beep('phase'); return; } if(this.state.phase===this.PHASE.WORK){ this.state.phase=this.PHASE.REST; this.state.remaining=this.cfg.restSec; this.beep('phase'); return; } if(this.state.phase===this.PHASE.REST){ if(this.state.setIdx>=this.cfg.sets){ this.state.phase=this.PHASE.DONE; this.state.remaining=0; this.beep('finish'); this.stop(); this.buildStack(); this.applyUI(); this.setFill(); } else { this.state.setIdx++; this.buildStack(); this.state.phase=this.PHASE.WORK; this.state.remaining=this.cfg.workSec; this.beep('phase'); } } }
+      tick(ts){ if(!this.state.running) return; if(!this.lastTs) this.lastTs = ts; const dt = Math.min(1,(ts-this.lastTs)/1000); this.lastTs = ts; this.state.remaining -= dt; if(this.state.remaining<=0){ this.nextPhase(); } this.applyUI(); this.setFill(); this.raf = requestAnimationFrame(this.tick.bind(this)); }
+      start(){ if(this.state.phase===this.PHASE.DONE) this.reset(); if(this.cfg.workSec<=0 || this.cfg.restSec<=0){ alert('Work と Rest を1秒以上で設定してください。'); return; } this.state.running=true; this.lastTs=0; cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.tick.bind(this)); }
+      pause(){ this.state.running=false; cancelAnimationFrame(this.raf); }
+      stop(){ this.state.running=false; cancelAnimationFrame(this.raf); }
+      reset(){ this.stop(); this.cfg.workSec=parseTime(this.el.work.value||'0:20'); this.cfg.restSec=parseTime(this.el.rest.value||'0:10'); this.cfg.warmupSec=parseTime(this.el.warmup.value||''); this.cfg.sets=Math.max(1,Number(this.el.sets.value)||8); this.state.setIdx=1; this.state.phase=this.cfg.warmupSec>0?this.PHASE.WARMUP:this.PHASE.WORK; this.state.remaining=this.state.phase===this.PHASE.WARMUP?this.cfg.warmupSec:this.cfg.workSec; this.buildStack(); this.applyUI(); this.setFill(); this.save(); }
+      bind(){ this.el.start.addEventListener('click',()=>this.start()); this.el.pause.addEventListener('click',()=>this.pause()); this.el.reset.addEventListener('click',()=>this.reset()); this.el.sound.addEventListener('click',()=>{ this.soundOn=!this.soundOn; this.el.soundState.textContent=this.soundOn?'On':'Off'; this.save(); }); this.el.wake.addEventListener('click',()=>this.enableWake()); ['work','rest','warmup','sets'].forEach(r=>{ this.el[r].addEventListener('change',()=>this.reset()); }); document.addEventListener('visibilitychange',()=>{ if(document.hidden) this.pause(); }); }
+    }
+
+    // Instantiate two timers
+    const leftTimer = new DuoTimer(document.getElementById('panel-left'), 'tabata-duo-left');
+    const rightTimer = new DuoTimer(document.getElementById('panel-right'), 'tabata-duo-right');
+
+    // Global controls
+    document.getElementById('startBoth').addEventListener('click',()=>{ leftTimer.start(); rightTimer.start(); });
+    document.getElementById('pauseBoth').addEventListener('click',()=>{ leftTimer.pause(); rightTimer.pause(); });
+    document.getElementById('resetBoth').addEventListener('click',()=>{ leftTimer.reset(); rightTimer.reset(); });
+
+    // Keyboard shortcuts
+    // Left panel: L to start/pause toggle, Shift+L reset
+    // Right panel: R to start/pause toggle, Shift+R reset
+    window.addEventListener('keydown',(e)=>{
+      if(e.key==='l' || e.key==='L'){ e.shiftKey ? leftTimer.reset() : (leftTimer.state.running? leftTimer.pause():leftTimer.start()); }
+      if(e.key==='r' || e.key==='R'){ if(e.shiftKey){ rightTimer.reset(); } else { rightTimer.state.running? rightTimer.pause(): rightTimer.start(); } }
+    });
+  </script>
 </body>
 </html>
